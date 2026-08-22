@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ангелина и математические лягушки</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: linear-gradient(#9fd9ff 0 38%, #6fc55a 38% 100%);
+    font-family: Arial, sans-serif; color:#20321c; overflow:hidden;
+  }
+  #gameWrap { width:min(100vw, 960px); padding:14px; }
+  #topbar {
+    display:flex; gap:12px; justify-content:space-between; align-items:center;
+    background:rgba(255,255,255,.86); border-radius:18px; padding:12px 18px;
+    box-shadow:0 8px 25px rgba(0,0,0,.14); margin-bottom:10px; flex-wrap:wrap;
+  }
+  #title { font-weight:900; font-size:20px; }
+  .stat { font-weight:800; }
+  canvas {
+    width:100%; aspect-ratio: 16/10; display:block; border-radius:22px;
+    box-shadow:0 18px 50px rgba(0,0,0,.25); background:#7fce5e;
+    touch-action:none;
+  }
+  #hint { text-align:center; color:#fff; text-shadow:0 2px 4px #31522b; margin:10px 0 0; }
+  #modal {
+    position:fixed; inset:0; display:grid; place-items:center; background:rgba(16,31,15,.42);
+  }
+  #card {
+    width:min(92vw,420px); background:#fffdf8; border-radius:24px; padding:26px;
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  #example { font-size:46px; font-weight:900; margin:14px 0; }
+  #answer {
+    width:100%; font-size:30px; text-align:center; padding:12px;
+    border:3px solid #88ad70; border-radius:14px; outline:none;
+  }
+  #check {
+    margin-top:14px; width:100%; padding:14px; border:0; border-radius:14px;
+    background:#26351F; color:#fff; font-size:18px; font-weight:800; cursor:pointer;
+  }
+  #message { min-height:24px; margin-top:10px; font-weight:800; }
+  .hidden { display:none !important; }
+
+  #touchControls {
+    display:none;
+    margin:12px auto 0;
+    width:180px;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #touchControls button {
+    width:56px;
+    height:48px;
+    margin:2px;
+    border:0;
+    border-radius:14px;
+    background:rgba(255,255,255,.9);
+    color:#26351F;
+    font-size:22px;
+    font-weight:900;
+    box-shadow:0 4px 12px rgba(0,0,0,.18);
+    touch-action:none;
+  }
+  #touchControls button:active {
+    transform:scale(.94);
+    background:#e8f4df;
+  }
+  .touchRow {
+    display:flex;
+    justify-content:center;
+  }
+  @media (max-width: 700px) {
+    body { overflow:auto; }
+    #gameWrap { padding:8px; }
+    #topbar { padding:10px 12px; border-radius:14px; gap:7px; }
+    #title { font-size:16px; width:100%; text-align:center; }
+    .stat { font-size:14px; }
+    #hint { font-size:13px; }
+    #touchControls { display:block; }
+    canvas { border-radius:16px; }
+  }
+
+</head>
+<body>
+<div id="gameWrap">
+  <div id="topbar">
+    <div id="title">🐸 Ангелина и математические лягушки</div>
+    <div class="stat">Поймано: <span id="score">0</span>/10</div>
+    <div class="stat">Уровень: <span id="level">—</span></div>
+  </div>
+
+  <div id="levelScreen" class="screen">
+    <div class="screenCard">
+      <div class="bigEmoji">🌸🐸🌸</div>
+      <h1>Выбери таблицу умножения</h1>
+      <p>Сегодня ловим 10 лягушек и решаем примеры!</p>
+      <div id="numberChoices"></div>
+    </div>
+  </div>
+
+  <canvas id="game" width="960" height="600"></canvas>
+  <div id="hint">Подойди к лягушке и поймай её сачком 🐸</div>
+
+  <div id="danceScreen" class="screen hidden">
+    <div class="screenCard danceCard">
+      <div id="danceScene">
+        <div class="dancer">💃</div>
+        <div class="froggy f1">🐸</div>
+        <div class="froggy f2">🐸</div>
+        <div class="froggy f3">🐸</div>
+        <div class="froggy f4">🐸</div>
+        <div class="froggy f5">🐸</div>
+        <div class="froggy f6">🐸</div>
+      </div>
+      <h1>Ура! Все лягушки пойманы! 🎉</h1>
+      <p>Ангелина танцует, а лягушки водят хоровод!</p>
+      <button id="nextLevel">Следующий уровень →</button>
+    </div>
+  </div>
+  <div id="touchControls" aria-label="Управление на телефоне">
+    <button data-key="ArrowUp">▲</button>
+    <div class="touchRow">
+      <button data-key="ArrowLeft">◀</button>
+      <button data-key="ArrowDown">▼</button>
+      <button data-key="ArrowRight">▶</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="hidden">
+  <div id="card">
+    <div style="font-size:42px">🐸</div>
+    <div style="font-weight:800">Чтобы поймать лягушку, реши пример:</div>
+    <div id="example"></div>
+    <input id="answer" type="number" inputmode="numeric" autocomplete="off" placeholder="?" />
+    <button id="check">Поймать!</button>
+    <div id="message"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const keys = {};
+let score = 0, activeFrog = null, question = null, caughtAnim = 0;
+let selectedTable = null;
+let frogs = [];
+const player = {x: W*.48, y:H*.62, speed:250, dir:1};
+document.getElementById('score').textContent = '0/10';
+
+function spawnFrog(i=0, multiplier=1) {
+  let x,y;
+  do {
+    x = 55 + Math.random()*(W-110);
+    y = 150 + Math.random()*(H-205);
+  } while (Math.hypot(x-player.x,y-player.y)<150);
+  return {x,y, phase:Math.random()*Math.PI*2, id:i, multiplier};
+}
+
+function startLevel(n) {
+  selectedTable = n;
+  score = 0;
+  document.getElementById('score').textContent = '0/10';
+  document.getElementById('level').textContent = '×' + n;
+  player.x = W*.48;
+  player.y = H*.62;
+  frogs = Array.from({length:10}, (_,i)=>spawnFrog(i,n));
+  document.getElementById('levelScreen').classList.add('hidden');
+  document.getElementById('game').style.visibility='visible';
+  document.getElementById('danceScreen').classList.add('hidden');
+}
+
+function finishLevel() {
+  document.getElementById('game').style.visibility='hidden';
+  document.getElementById('danceScreen').classList.remove('hidden');
+}
+function roundRect(x,y,w,h,r,fill,stroke) {
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+}
+function drawField(){
+  ctx.fillStyle='#78bf58'; ctx.fillRect(0,0,W,H);
+  // distant hills
+  ctx.fillStyle='#69aa51'; ctx.beginPath();
+  ctx.moveTo(0,190); for(let x=0;x<=W;x+=80) ctx.quadraticCurveTo(x+40,150+Math.sin(x)*25,x+80,190);
+  ctx.lineTo(W,0);ctx.lineTo(0,0);ctx.fill();
+  // grass texture
+  for(let i=0;i<190;i++){
+    const x=(i*83)%W, y=110+(i*47)%(H-110);
+    ctx.strokeStyle=i%3?'rgba(42,108,37,.22)':'rgba(255,255,210,.18)';
+    ctx.lineWidth=1.5; ctx.beginPath();ctx.moveTo(x,y+7);ctx.lineTo(x+2,y);ctx.stroke();
+  }
+  // path
+  ctx.strokeStyle='rgba(223,199,130,.55)';ctx.lineWidth=85;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(W*.5,H+30);ctx.bezierCurveTo(W*.36,H*.72,W*.72,H*.45,W*.56,115);ctx.stroke();
+  ctx.strokeStyle='rgba(240,218,154,.55)';ctx.lineWidth=62;ctx.stroke();
+  // flowers
+  for(let i=0;i<35;i++){
+    let x=(i*137+31)%W,y=130+(i*73)%(H-140);
+    ctx.fillStyle=i%2?'#fff6c8':'#e9d8ff';ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill();
+  }
+}
+function drawFrog(f){
+  const bob=Math.sin(performance.now()/250+f.phase)*3;
+  const x=f.x,y=f.y+bob;
+  ctx.save();ctx.translate(x,y);
+  ctx.fillStyle='#3e8e3d';ctx.beginPath();ctx.ellipse(0,4,24,16,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(-13,-8,9,0,7);ctx.arc(13,-8,9,0,7);ctx.fill();
+  ctx.fillStyle='white';ctx.beginPath();ctx.arc(-13,-10,4,0,7);ctx.arc(13,-10,4,0,7);ctx.fill();
+  ctx.fillStyle='#162518';ctx.beginPath();ctx.arc(-12,-10,2,0,7);ctx.arc(14,-10,2,0,7);ctx.fill();
+  ctx.strokeStyle='#163b19';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,1,8,.1,Math.PI-.1);ctx.stroke();
+  ctx.restore();
+}
+function drawPlayer(){
+  const x=player.x,y=player.y;
+  ctx.save();ctx.translate(x,y);
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.16)';
+  ctx.beginPath();ctx.ellipse(0,45,28,8,0,0,Math.PI*2);ctx.fill();
+
+  // legs and shoes
+  ctx.strokeStyle='#f1b29d';ctx.lineWidth=10;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-9,28);ctx.lineTo(-12,42);ctx.moveTo(9,28);ctx.lineTo(14,42);ctx.stroke();
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=8;
+  ctx.beginPath();ctx.moveTo(-15,43);ctx.lineTo(-5,43);ctx.moveTo(11,43);ctx.lineTo(21,43);ctx.stroke();
+
+  // dress
+  ctx.fillStyle='#f6d5c5';
+  ctx.beginPath();ctx.moveTo(-18,0);ctx.quadraticCurveTo(0,-6,18,0);ctx.lineTo(27,31);ctx.lineTo(-27,31);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#ffffff';
+  ctx.beginPath();ctx.moveTo(-15,4);ctx.lineTo(15,4);ctx.lineTo(19,26);ctx.lineTo(-19,26);ctx.closePath();ctx.fill();
+
+  // arms
+  ctx.strokeStyle='#f1b29d';ctx.lineWidth=8;
+  ctx.beginPath();ctx.moveTo(-18,6);ctx.lineTo(-30,19);ctx.moveTo(18,6);ctx.lineTo(30,17);ctx.stroke();
+
+  // neck
+  ctx.fillStyle='#f1b29d';ctx.fillRect(-5,-9,10,10);
+
+  // face
+  ctx.beginPath();ctx.arc(0,-27,23,0,Math.PI*2);ctx.fill();
+
+  // ears
+  ctx.beginPath();ctx.arc(-22,-27,4,0,Math.PI*2);ctx.arc(22,-27,4,0,Math.PI*2);ctx.fill();
+
+  // green long hair behind face
+  ctx.fillStyle='#3d9a62';
+  ctx.beginPath();
+  ctx.arc(0,-34,28,Math.PI*0.92,Math.PI*2.08);
+  ctx.lineTo(24,-4);ctx.quadraticCurveTo(13,-10,10,0);
+  ctx.quadraticCurveTo(0,-7,-9,2);ctx.quadraticCurveTo(-15,-8,-25,-2);
+  ctx.closePath();ctx.fill();
+
+  // hair fringe
+  ctx.beginPath();
+  ctx.moveTo(-23,-31);ctx.quadraticCurveTo(-15,-57,0,-57);ctx.quadraticCurveTo(18,-56,25,-35);
+  ctx.quadraticCurveTo(14,-43,8,-35);ctx.quadraticCurveTo(2,-44,-3,-34);
+  ctx.quadraticCurveTo(-10,-43,-16,-33);ctx.closePath();ctx.fill();
+
+  // redraw face center softly
+  ctx.fillStyle='#f1b29d';ctx.beginPath();ctx.arc(0,-26,18,0,Math.PI*2);ctx.fill();
+
+  // side locks
+  ctx.fillStyle='#3d9a62';ctx.lineCap='round';ctx.lineWidth=7;
+  ctx.beginPath();ctx.moveTo(-19,-42);ctx.quadraticCurveTo(-28,-23,-21,-7);
+  ctx.moveTo(19,-42);ctx.quadraticCurveTo(28,-23,22,-6);ctx.stroke();
+
+  // eyes
+  ctx.fillStyle='#26351F';
+  ctx.beginPath();ctx.arc(-7,-27,2.3,0,Math.PI*2);ctx.arc(7,-27,2.3,0,Math.PI*2);ctx.fill();
+
+  // rosy cheeks
+  ctx.fillStyle='rgba(226,120,125,.32)';
+  ctx.beginPath();ctx.ellipse(-12,-20,4,2.5,0,0,Math.PI*2);ctx.ellipse(12,-20,4,2.5,0,0,Math.PI*2);ctx.fill();
+
+  // smile
+  ctx.strokeStyle='#9b4e50';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.arc(0,-20,5,0.15,Math.PI-0.15);ctx.stroke();
+
+  // bow in hair
+  ctx.fillStyle='#d7f0c8';
+  ctx.beginPath();ctx.ellipse(-25,-48,7,4,-.5,0,Math.PI*2);ctx.ellipse(-15,-48,7,4,.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#26351F';ctx.beginPath();ctx.arc(-20,-48,2,0,Math.PI*2);ctx.fill();
+
+  // net
+  ctx.strokeStyle='#7a6542';ctx.lineWidth=4.5;
+  ctx.beginPath();ctx.moveTo(26,12);ctx.lineTo(55,-27);ctx.stroke();
+  ctx.strokeStyle='#e6eadf';ctx.lineWidth=3.5;
+  ctx.beginPath();ctx.ellipse(63,-37,17,13,-.55,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(38,53,31,.45)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(52,-44);ctx.lineTo(74,-30);ctx.moveTo(53,-31);ctx.lineTo(72,-44);ctx.stroke();
+
+  // flower crown
+  const flowers=[[-17,-54,'#ffd8e8'],[-4,-61,'#fff2a8'],[10,-57,'#d9c7ff']];
+  flowers.forEach(([fx,fy,c])=>{
+    ctx.fillStyle=c;
+    for(let k=0;k<5;k++){
+      const a=k*Math.PI*2/5;
+      ctx.beginPath();ctx.arc(fx+Math.cos(a)*5,fy+Math.sin(a)*5,4,0,Math.PI*2);ctx.fill();
+    }
+    ctx.fillStyle='#f0c85a';ctx.beginPath();ctx.arc(fx,fy,2.2,0,Math.PI*2);ctx.fill();
+  });
+
+  // little rosy smile
+  ctx.strokeStyle='#9b4e50';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.arc(0,-20,5,0.15,Math.PI-0.15);ctx.stroke();
+
+  // name sign
+  roundRect(-48,-91,96,25,6,'#fffdf6','#26351F');
+  ctx.fillStyle='#26351F';ctx.font='bold 14px Arial';ctx.textAlign='center';
+  ctx.fillText('Ангелина',0,-73);
+
+  ctx.restore();
+}
+function draw(){
+  drawField();
+  frogs.filter(Boolean).forEach(drawFrog);
+  drawPlayer();
+  if(caughtAnim>0){
+    ctx.fillStyle='rgba(255,255,255,'+(caughtAnim/30)+')';
+    ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('Поймана! +1',W/2,90);
+    caughtAnim--;
+  }
+}
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(!activeFrog){
+    let dx=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);
+    let dy=(keys.ArrowDown?1:0)-(keys.ArrowUp?1:0);
+    if(dx||dy){
+      const l=Math.hypot(dx,dy);dx/=l;dy/=l;
+      player.x=Math.max(30,Math.min(W-30,player.x+dx*player.speed*dt));
+      player.y=Math.max(110,Math.min(H-40,player.y+dy*player.speed*dt));
+      if(dx) player.dir=dx;
+    }
+    for(const f of frogs){
+      if(f && Math.hypot(player.x-f.x,player.y-f.y)<60){ ask(f); break; }
+    }
+  }
+  draw(); requestAnimationFrame(loop);
+}
+function ask(f){
+  activeFrog=f;
+  const a = f.id + 1;
+  const b = selectedTable;
+  question={a,b};
+  document.getElementById('example').textContent=`${a} × ${b} = ?`;
+  document.getElementById('answer').value='';
+  document.getElementById('message').textContent='';
+  document.getElementById('modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('answer').focus(),100);
+}
+function submit(){
+  const val=Number(document.getElementById('answer').value);
+  const msg=document.getElementById('message');
+  if(val===question.a*question.b){
+    score++; document.getElementById('score').textContent=score;
+    if(score>best){best=score;localStorage.setItem('angelinaBest',best);document.getElementById('best').textContent=best;}
+    const i=frogs.indexOf(activeFrog);
+    frogs[i] = null;
+    msg.textContent='Верно! Лягушка поймана! 🎉'; msg.style.color='#28743a';caughtAnim=30;
+    setTimeout(() => {
+      closeModal();
+      if(score === 10) finishLevel();
+    },700);
+  } else {
+    msg.textContent='Неверно! Попробуй ещё раз 🐸'; msg.style.color='#a33c32';
+    setTimeout(closeModal,900);
+  }
+}
+function closeModal(){activeFrog=null;document.getElementById('modal').classList.add('hidden');}
+
+// Управление на телефоне: удержание кнопки двигает Ангелину.
+document.querySelectorAll('#touchControls button').forEach(btn => {
+  const key = btn.dataset.key;
+  const start = e => { e.preventDefault(); keys[key] = true; };
+  const stop = e => { e.preventDefault(); keys[key] = false; };
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointercancel', stop);
+  btn.addEventListener('pointerleave', stop);
+});
+
+
+document.getElementById('game').style.visibility='hidden';
+const numberChoices = document.getElementById('numberChoices');
+for(let n=1;n<=10;n++){
+  const btn=document.createElement('button');
+  btn.textContent='×'+n;
+  btn.onclick=()=>startLevel(n);
+  numberChoices.appendChild(btn);
+}
+document.getElementById('nextLevel').onclick=()=>{
+  document.getElementById('danceScreen').classList.add('hidden');
+  document.getElementById('levelScreen').classList.remove('hidden');
+};
+
+document.addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){keys[e.key]=true;e.preventDefault();}
+  if(e.key==='Enter' && activeFrog) submit();
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+document.getElementById('check').onclick=submit;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
